@@ -1,0 +1,247 @@
+services:
+
+  nginx:
+    container_name: nginx
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      # These ports are in format <host-port>:<container-port>
+      - '80:80' # Public HTTP Port
+      - '443:443' # Public HTTPS Port
+      - '81:81' # Admin Web Port
+      # Add any other Stream port you want to expose
+      # - '21:21' # FTP
+    environment:
+      DISABLE_IPV6: 'true'
+    volumes:
+      - nginx_data:/data
+      - letsencrypt:/etc/letsencrypt
+
+  derbynet:
+    container_name: derbynet
+    image: jeffpiazza/derbynet_server
+    ports:
+      # - 127.0.0.1:8050:80
+      - 8050:8050
+    #   - 8051:443
+    volumes:
+      - derbynet_data:/var/lib/derbynet
+      - /etc/localtime:/etc/localtime:ro
+      # edit passwords on host system `sudo vim /var/lib/docker/volumes/faraday_derbyet_data/_data/config-roles.inc`
+    restart: unless-stopped
+
+  # jellyfin:
+  #   container_name: jellyfin
+  #   image: lscr.io/linuxserver/jellyfin:latest
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=US/Central
+  #     - JELLYFIN_PublishedServerUrl=${local_ip}
+  #     # - DOCKER_MODS=linuxserver/mods:jellyfin-opencl-intel
+  #   volumes:
+  #     - jellyfin_data:/config
+  #     - jellyfin_cache:/cache
+  #     - ${media_path}:/AllMedia
+  #   ports:
+  #     - 8096:8096
+  #     - 8920:8920
+  #     - 7359:7359/udp
+  #   devices:
+  #     - /dev/dri:/dev/dri
+  #   restart: unless-stopped
+
+  # plex:
+  #   container_name: plex
+  #   image: lscr.io/linuxserver/plex:latest
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=US/Central
+  #     - VERSION=docker
+  #     - PLEX_CLAIM=${plex_claim}
+  #   devices:
+  #     - /dev/dri:/dev/dri
+  #   volumes:
+  #     - plex_data:/config
+  #     - ${media_path}:/library
+  #   ports:
+  #     - 32400:32400
+  #     # - 1900:1900/udp
+  #     # - 5354:5353/udp
+  #     # - 8324:8324
+  #     # - 32410:32410/udp
+  #     # - 32412:32412/udp
+  #     # - 32413:32413/udp
+  #     # - 32414:32414/udp
+  #     # - 32469:32469
+  #   restart: unless-stopped
+
+  vpn:
+    image: qmcgaw/gluetun:latest
+    container_name: vpn
+    # container_name: gluetun
+    # line above must be uncommented to allow external containers to connect. See https:\github.com/qdm12/gluetun/wiki/Connect-a-container-to-gluetun#external-container-to-gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - 8888:8888/tcp # HTTP proxy
+      - 8388:8388/tcp # Shadowsocks
+      - 8389:8388/udp # Shadowsocks
+      # Radarr
+      - 7878:7878
+      # Sonarr
+      - 8989:8989
+      # Readarr
+      - 8787:8787
+      # Prowlarr
+      - 9696:9696
+      # Lidarr
+      - 8686:8686
+      # Qbittorrent
+      - 8080:8080
+      - 6881:6881
+      - 6881:6881/udp
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+    volumes:
+      - gluetun_data:/gluetun
+    environment:
+      # See https:\github.com/qdm12/gluetun/wiki
+      - VPN_SERVICE_PROVIDER=private internet access
+      - OPENVPN_USER=${openvpn_username}
+      - OPENVPN_PASSWORD=${openvpn_password}
+      - SERVER_REGIONS=Netherlands
+      - TZ=Chicago/USA
+      # - PORT_FORWARD_ONLY=true
+      - VPN_PORT_FORWARDING=on
+      # - VPN_PORT_FORWARDING_STATUS_FILE=/gluetun/piaportforward.json
+    restart: unless-stopped
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Chicago/USA
+    volumes:
+      - prowlarr_data:/config
+    restart: unless-stopped
+    network_mode: "service:vpn"
+    depends_on:
+      - vpn
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Chicago/USA
+    volumes:
+      - radarr_data:/config:rw
+      - ${movies}:/movies # Movies
+      - ${kids_movies}:/kids_movies # Kids movies
+      - ${qbittorrent_downloads}:/downloads # Qbittorrent download path
+    restart: unless-stopped
+    network_mode: "service:vpn"
+    depends_on:
+      - vpn
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Chicago/USA
+    volumes:
+      - sonarr_data:/config
+      - ${tv_shows}:/tv_shows # TV Shows
+      - ${kids_tv_shows}:/kids_tv_shows # Kids TV Shows
+      - ${qbittorrent_downloads}:/downloads # Qbittorrent download path
+    restart: unless-stopped
+    network_mode: "service:vpn"
+    depends_on:
+      - vpn
+
+
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Chicago/USA
+    volumes:
+      - lidarr_data:/config
+      - ${media_path}:/music #optional
+      - ${qbittorrent_downloads}:/downloads #optional
+    restart: unless-stopped
+    network_mode: "service:vpn"
+    depends_on:
+      - vpn
+
+  readarr:
+    image: lscr.io/linuxserver/readarr:develop
+    container_name: readarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Chicago/USA
+    volumes:
+      - readarr_data:/config
+      - ${media_path}:/books #optional
+      - ${qbittorrent_downloads}:/downloads #optional
+    restart: unless-stopped
+    network_mode: "service:vpn"
+    depends_on:
+      - vpn
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Chicago/USA
+      - WEBUI_PORT=8080
+    volumes:
+      - qbittorrent_data:/config
+      - ${qbittorrent_downloads}:/downloads # Qbittorrent download path
+    restart: unless-stopped
+    network_mode: "service:vpn"
+    depends_on:
+      - vpn
+
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    ports:
+      - 13378:80
+    volumes:
+      - ${media_path}:/audiobooks
+      - ${media_path}:/podcasts
+      - audiobookshelf_data:/config
+      - audiobookshelf_data:/metadata
+    environment:
+      - TZ=Chicago/USA
+
+volumes:
+  nginx_data:
+  letsencrypt:
+  derbynet_data:
+  gluetun_data:
+  prowlarr_data:
+  radarr_data:
+  sonarr_data:
+  qbittorrent_data:
+  lidarr_data:
+  readarr_data:
+  audiobookshelf_data:
+  # homeassistant_data:
+  # jellyfin_data:
+  # jellyfin_cache:
+  # plex_data:
