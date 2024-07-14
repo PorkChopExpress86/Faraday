@@ -9,12 +9,12 @@ docker run --rm --volumes-from nginx -v ./backup:/backup ubuntu bash -c "cd /etc
 # derbynet
 docker run --rm --volumes-from derbynet -v ./backup:/backup ubuntu bash -c "cd /var/lib/derbynet && tar xvf /backup/derbynet.tar"
 
-# jellyfin
-docker run --rm --volumes-from jellyfin -v ./backup:/backup ubuntu bash -c "cd /config && tar xvf /backup/jellyfin_data.tar"
-docker run --rm --volumes-from jellyfin -v ./backup:/backup ubuntu bash -c "cd /cache && tar xvf /backup/jellyfin_cache.tar"
+# # jellyfin
+# docker run --rm --volumes-from jellyfin -v ./backup:/backup ubuntu bash -c "cd /config && tar xvf /backup/jellyfin_data.tar"
+# docker run --rm --volumes-from jellyfin -v ./backup:/backup ubuntu bash -c "cd /cache && tar xvf /backup/jellyfin_cache.tar"
 
-#plex
-docker run --rm --volumes-from plex -v ./backup:/backup ubuntu bash -c "cd /config && tar xvf /backup/plex_data.tar"
+# #plex
+# docker run --rm --volumes-from plex -v ./backup:/backup ubuntu bash -c "cd /config && tar xvf /backup/plex_data.tar"
 
 # vpn
 docker run --rm --volumes-from vpn -v ./backup:/backup ubuntu bash -c "cd /config && tar xvf /backup/gluetun_data.tar"
