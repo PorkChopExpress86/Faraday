@@ -1,5 +1,4 @@
 services:
-
   nginx:
     container_name: nginx
     image: 'jc21/nginx-proxy-manager:latest'
@@ -30,62 +29,63 @@ services:
       # edit passwords on host system `sudo vim /var/lib/docker/volumes/faraday_derbyet_data/_data/config-roles.inc`
     restart: unless-stopped
 
-  # jellyfin:
-  #   container_name: jellyfin
-  #   image: lscr.io/linuxserver/jellyfin:latest
-  #   environment:
-  #     - PUID=1000
-  #     - PGID=1000
-  #     - TZ=US/Central
-  #     - JELLYFIN_PublishedServerUrl=${local_ip}
-  #     # - DOCKER_MODS=linuxserver/mods:jellyfin-opencl-intel
-  #   volumes:
-  #     - jellyfin_data:/config
-  #     - jellyfin_cache:/cache
-  #     - ${media_path}:/AllMedia
-  #   ports:
-  #     - 8096:8096
-  #     - 8920:8920
-  #     - 7359:7359/udp
-  #   devices:
-  #     - /dev/dri:/dev/dri
-  #   restart: unless-stopped
+  jellyfin:
+    container_name: jellyfin
+    image: lscr.io/linuxserver/jellyfin:latest
+    network_mode: host
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=US/Central
+      - JELLYFIN_PublishedServerUrl=${local_ip}
+      - DOCKER_MODS=linuxserver/mods:jellyfin-opencl-intel
+    volumes:
+      - jellyfin_data:/config
+      - jellyfin_cache:/cache
+      - ${media_path}:/media
+    devices:
+      - /dev/dri:/dev/dri
+    restart: unless-stopped
 
-  # plex:
-  #   container_name: plex
-  #   image: lscr.io/linuxserver/plex:latest
-  #   environment:
-  #     - PUID=1000
-  #     - PGID=1000
-  #     - TZ=US/Central
-  #     - VERSION=docker
-  #     - PLEX_CLAIM=${plex_claim}
-  #   devices:
-  #     - /dev/dri:/dev/dri
-  #   volumes:
-  #     - plex_data:/config
-  #     - ${media_path}:/library
-  #   ports:
-  #     - 32400:32400
-  #     # - 1900:1900/udp
-  #     # - 5354:5353/udp
-  #     # - 8324:8324
-  #     # - 32410:32410/udp
-  #     # - 32412:32412/udp
-  #     # - 32413:32413/udp
-  #     # - 32414:32414/udp
-  #     # - 32469:32469
-  #   restart: unless-stopped
+  plex:
+    container_name: plex
+    image: lscr.io/linuxserver/plex:latest
+    network_mode: host
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=US/Central
+      - VERSION=docker
+      - PLEX_CLAIM=${plex_claim}
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      - plex_data:/config
+      - ${media_path}:/media
+    restart: unless-stopped
 
   vpn:
-    image: qmcgaw/gluetun:latest
+    image: thrnz/docker-wireguard-pia
     container_name: vpn
-    # container_name: gluetun
-    # line above must be uncommented to allow external containers to connect. See https:\github.com/qdm12/gluetun/wiki/Connect-a-container-to-gluetun#external-container-to-gluetun
+    volumes:
+        # Auth token is stored here
+        - vpn_data:/pia
+        # If enabled, the forwarded port is dumped to /pia-shared/port.dat for potential use in other containers
+        - ./pia-shared:/pia-shared
     cap_add:
       - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
+      # SYS_MODULE might not be needed with a 5.6+ kernel?
+      - SYS_MODULE
+    environment:
+      # The following env vars are required:
+      - LOC=ca_ontario
+      - USER=${vpn_username}
+      - PASS=${vpn_password}
+      # The rest are optional:
+      - LOCAL_NETWORK=192.168.1.0/24
+      - KEEPALIVE=25
+      - VPNDNS=10.0.0.241,10.0.0.243
+      - PORT_FORWARDING=1
     ports:
       - 8888:8888/tcp # HTTP proxy
       - 8388:8388/tcp # Shadowsocks
@@ -105,20 +105,67 @@ services:
       - 6881:6881
       - 6881:6881/udp
     sysctls:
+      # The wg-quick script tries to set this when setting up routing, however this requires running the container
+      # with the --privileged flag set. Setting it here instead if needed means the container can be run with lower
+      # privileges. This only needs setting if strict reverse path filtering (rp_filter=1) is used.
+      - net.ipv4.conf.all.src_valid_mark=1
+      # May as well disable ipv6. Should be blocked anyway.
+      - net.ipv6.conf.default.disable_ipv6=1
       - net.ipv6.conf.all.disable_ipv6=1
-    volumes:
-      - gluetun_data:/gluetun
-    environment:
-      # See https:\github.com/qdm12/gluetun/wiki
-      - VPN_SERVICE_PROVIDER=private internet access
-      - OPENVPN_USER=${openvpn_username}
-      - OPENVPN_PASSWORD=${openvpn_password}
-      - SERVER_REGIONS=Netherlands
-      - TZ=Chicago/USA
-      # - PORT_FORWARD_ONLY=true
-      - VPN_PORT_FORWARDING=on
-      # - VPN_PORT_FORWARDING_STATUS_FILE=/gluetun/piaportforward.json
+      - net.ipv6.conf.lo.disable_ipv6=1
+    healthcheck:
+      test: ping -c 1 www.google.com || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: unless-stopped
+
+    
+
+
+
+  # vpn:
+  #   image: qmcgaw/gluetun:latest
+  #   container_name: vpn
+  #   # container_name: gluetun
+  #   # line above must be uncommented to allow external containers to connect. See https:\github.com/qdm12/gluetun/wiki/Connect-a-container-to-gluetun#external-container-to-gluetun
+  #   cap_add:
+  #     - NET_ADMIN
+  #   devices:
+  #     - /dev/net/tun:/dev/net/tun
+  #   ports:
+  #     - 8888:8888/tcp # HTTP proxy
+  #     - 8388:8388/tcp # Shadowsocks
+  #     - 8389:8388/udp # Shadowsocks
+  #     # Radarr
+  #     - 7878:7878
+  #     # Sonarr
+  #     - 8989:8989
+  #     # Readarr
+  #     - 8787:8787
+  #     # Prowlarr
+  #     - 9696:9696
+  #     # Lidarr
+  #     - 8686:8686
+  #     # Qbittorrent
+  #     - 8080:8080
+  #     - 6881:6881
+  #     - 6881:6881/udp
+  #   sysctls:
+  #     - net.ipv6.conf.all.disable_ipv6=1
+  #   volumes:
+  #     - gluetun_data:/gluetun
+  #   environment:
+  #     # See https:\github.com/qdm12/gluetun/wiki
+  #     - VPN_SERVICE_PROVIDER=private internet access
+  #     - OPENVPN_USER=${openvpn_username}
+  #     - OPENVPN_PASSWORD=${openvpn_password}
+  #     - SERVER_REGIONS=CA Ontario
+  #     - TZ=Chicago/USA
+  #     # - PORT_FORWARD_ONLY=true
+  #     - VPN_PORT_FORWARDING=on
+  #     # - VPN_PORT_FORWARDING_STATUS_FILE=/gluetun/piaportforward.json
+  #   restart: unless-stopped
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
@@ -143,9 +190,9 @@ services:
       - TZ=Chicago/USA
     volumes:
       - radarr_data:/config:rw
-      - ${movies}:/movies # Movies
-      - ${kids_movies}:/kids_movies # Kids movies
-      - ${qbittorrent_downloads}:/downloads # Qbittorrent download path
+      - ${movies}:/movies
+      - ${kids_movies}:/kids_movies
+      - ${qbittorrent_downloads}:/downloads
     restart: unless-stopped
     network_mode: "service:vpn"
     depends_on:
@@ -160,9 +207,9 @@ services:
       - TZ=Chicago/USA
     volumes:
       - sonarr_data:/config
-      - ${tv_shows}:/tv_shows # TV Shows
-      - ${kids_tv_shows}:/kids_tv_shows # Kids TV Shows
-      - ${qbittorrent_downloads}:/downloads # Qbittorrent download path
+      - ${tv_shows}:/tv_shows
+      - ${kids_tv_shows}:/kids_tv_shows
+      - ${qbittorrent_downloads}:/downloads
     restart: unless-stopped
     network_mode: "service:vpn"
     depends_on:
@@ -177,8 +224,8 @@ services:
       - TZ=Chicago/USA
     volumes:
       - lidarr_data:/config
-      - ${media_path}:/music #optional
-      - ${qbittorrent_downloads}:/downloads #optional
+      - ${music}:/music
+      - ${qbittorrent_downloads}:/downloads
     restart: unless-stopped
     network_mode: "service:vpn"
     depends_on:
@@ -193,7 +240,8 @@ services:
       - TZ=Chicago/USA
     volumes:
       - readarr_data:/config
-      - ${media_path}:/books #optional
+      - ${books}:/books #optional
+      - ${audiobooks}:/audiobooks
       - ${qbittorrent_downloads}:/downloads #optional
     restart: unless-stopped
     network_mode: "service:vpn"
@@ -221,8 +269,8 @@ services:
     ports:
       - 13378:80
     volumes:
-      - ${media_path}:/audiobooks
-      - ${media_path}:/podcasts
+      - ${audiobooks}:/audiobooks
+      - ${podcasts}:/podcasts
       - audiobookshelf_data:/config
       - audiobookshelf_data:/metadata
     environment:
@@ -234,12 +282,10 @@ services:
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
     extends:
       file: hwaccel.transcoding.yml
-      service: vaapi-wsl # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
+      service: quicksync # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
     volumes:
       - ${UPLOAD_LOCATION}:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
-    devices:
-    - /dev/dri:/dev/dri
     env_file:
       - .env
     ports:
@@ -253,14 +299,12 @@ services:
     container_name: immich_machine_learning
     # For hardware acceleration, add one of -[armnn, cuda, openvino] to the image tag.
     # Example tag: ${IMMICH_VERSION:-release}-cuda
-    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-cuda
     extends: # uncomment this section for hardware acceleration - see https://immich.app/docs/features/ml-hardware-acceleration
       file: hwaccel.ml.yml
-      service: openvino-wsl # set to one of [armnn, cuda, openvino, openvino-wsl] for accelerated inference - use the `-wsl` version for WSL2 where applicable
+      service: cuda # set to one of [armnn, cuda, openvino, openvino-wsl] for accelerated inference - use the `-wsl` version for WSL2 where applicable
     volumes:
       - model-cache:/cache
-    devices:
-    - /dev/dri:/dev/dri
     env_file:
       - .env
     restart: always
@@ -303,7 +347,7 @@ volumes:
   readarr_data:
   audiobookshelf_data:
   model-cache:
-  # homeassistant_data:
-  # jellyfin_data:
-  # jellyfin_cache:
-  # plex_data:
+  jellyfin_data:
+  jellyfin_cache:
+  plex_data:
+  vpn_data:
