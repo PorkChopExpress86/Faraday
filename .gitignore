@@ -1,3 +1,4 @@
 .env
 .env.linux
 backup/
+pia-shared/
