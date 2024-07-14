@@ -16,7 +16,7 @@ powershell.exe docker compose stop
 docker run --rm --volumes-from nginx -v ./backup:/backup ubuntu tar cvf /backup/nginx_data.tar -C /data .
 docker run --rm --volumes-from nginx -v ./backup:/backup ubuntu tar cvf /backup/letsencrypt.tar -C /etc/letsencrypt .
 
-# faraday_derbynet_data
+# derbynet_data
 docker run --rm --volumes-from derbynet -v ./backup:/backup ubuntu tar cvf /backup/derbynet_data.tar -C /var/lib/derbynet .
 
 # Jellyfin
@@ -38,8 +38,19 @@ docker run --rm --volumes-from radarr -v ./backup:/backup ubuntu tar cvf /backup
 # sonarr
 docker run --rm --volumes-from sonarr -v ./backup:/backup ubuntu tar cvf /backup/sonarr_data.tar -C /config .
 
+# lidarr
+docker run --rm --volumes-from lidarr -v ./backup:/backup ubuntu tar cvf /backup/lidarr_data.tar -C /config .
+
+# readarr
+docker run --rm --volumes-from readarr -v ./backup:/backup ubuntu tar cvf /backup/readarr_data.tar -C /config .
+
 # qbittorrent
 docker run --rm --volumes-from qbittorrent -v ./backup:/backup ubuntu tar cvf /backup/qbittorrent_data.tar -C /config .
+
+# Audiobookshelf
+# docker run --rm --volumes-from sonarr -v ./backup:/backup ubuntu tar cvf /backup/sonarr_data.tar -C /config .
+
+#
 
 # Start it all back up using the powershell script
 powershell.exe docker compose up -d
