@@ -2,3 +2,4 @@
 .env.linux
 backup/
 pia-shared/
+scripts/backup/

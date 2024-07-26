@@ -100,6 +100,8 @@ services:
       - 9696:9696
       # Lidarr
       - 8686:8686
+      # Bazarr
+      - 6767:6767
       # Qbittorrent
       - 8080:8080
       - 6881:6881
@@ -166,6 +168,19 @@ services:
   #     - VPN_PORT_FORWARDING=on
   #     # - VPN_PORT_FORWARDING_STATUS_FILE=/gluetun/piaportforward.json
   #   restart: unless-stopped
+  # flaresolverr:
+  #     image: ghcr.io/flaresolverr/flaresolverr:latest
+  #     container_name: flaresolverr
+  #     environment:
+  #       - LOG_LEVEL=${LOG_LEVEL:-info}
+  #       - LOG_HTML=${LOG_HTML:-false}
+  #       - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
+  #       - TZ=UTC
+  #       - PORT=31314
+  #       - HOST=127.0.0.1
+  #     network_mode: host
+  #     pull_policy: always
+  #     restart: unless-stopped
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
@@ -177,6 +192,9 @@ services:
     volumes:
       - prowlarr_data:/config
     restart: unless-stopped
+    # ports:
+    #   # Prowlarr
+    #   - 9696:9696
     network_mode: "service:vpn"
     depends_on:
       - vpn
@@ -247,6 +265,26 @@ services:
     network_mode: "service:vpn"
     depends_on:
       - vpn
+  
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - bazarr_data:/config
+      - ${movies}:/movies #optional
+      - ${tv_shows}:/tv_shows #optional
+      - ${kids_movies}:/kid_movies
+      - ${kids_tv_shows}:/kid_tv_shows
+    # ports:
+    #   - 6767:6767
+    restart: unless-stopped
+    network_mode: "service:vpn"
+    depends_on:
+      - vpn
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
@@ -276,6 +314,7 @@ services:
     environment:
       - TZ=Chicago/USA
     restart: unless-stopped
+
 
   immich:
     container_name: immich
@@ -351,3 +390,4 @@ volumes:
   jellyfin_cache:
   plex_data:
   vpn_data:
+  bazarr_data:
