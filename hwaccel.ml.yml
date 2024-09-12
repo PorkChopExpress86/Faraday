@@ -17,6 +17,7 @@ services:
   cpu: {}
 
   cuda:
+    runtime: nvidia
     deploy:
       resources:
         reservations:
