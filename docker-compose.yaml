@@ -315,18 +315,32 @@ services:
       - TZ=Chicago/USA
     restart: unless-stopped
 
+  # podgrab:
+  #   image: akhilrex/podgrab
+  #   container_name: podgrab
+  #   environment:
+  #     - CHECK_FREQUENCY=240
+  #    # - PASSWORD=password     ## Uncomment to enable basic authentication, username = podgrab
+  #   volumes:
+  #     - podgrab_data:/config
+  #     - ${podcasts}:/assets
+  #   ports:
+  #     - 8082:8080
+  #   restart: unless-stopped
 
   immich:
     container_name: immich
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
-    extends:
-      file: hwaccel.transcoding.yml
-      service: quicksync # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
+    # extends:
+    #   file: hwaccel.transcoding.yml
+    #   service: quicksync # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
     volumes:
       - ${UPLOAD_LOCATION}:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
     env_file:
       - .env
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
     ports:
       - 2283:3001
     depends_on:
@@ -338,10 +352,14 @@ services:
     container_name: immich_machine_learning
     # For hardware acceleration, add one of -[armnn, cuda, openvino] to the image tag.
     # Example tag: ${IMMICH_VERSION:-release}-cuda
-    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-cuda
-    extends: # uncomment this section for hardware acceleration - see https://immich.app/docs/features/ml-hardware-acceleration
-      file: hwaccel.ml.yml
-      service: cuda # set to one of [armnn, cuda, openvino, openvino-wsl] for accelerated inference - use the `-wsl` version for WSL2 where applicable
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    # extends: # uncomment this section for hardware acceleration - see https://immich.app/docs/features/ml-hardware-acceleration
+    #   file: hwaccel.ml.yml
+    #   service: openvino # set to one of [armnn, cuda, openvino, openvino-wsl] for accelerated inference - use the `-wsl` version for WSL2 where applicable
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    ports:
+      - 3003:3003
     volumes:
       - model-cache:/cache
     env_file:
@@ -373,6 +391,17 @@ services:
     command: ["postgres", "-c" ,"shared_preload_libraries=vectors.so", "-c", 'search_path="$$user", public, vectors', "-c", "logging_collector=on", "-c", "max_wal_size=2GB", "-c", "shared_buffers=512MB", "-c", "wal_compression=on"]
     restart: always
 
+  homeassistant:
+    container_name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    volumes:
+      - homeassistant_data:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+
 volumes:
   nginx_data:
   letsencrypt:
@@ -391,3 +420,6 @@ volumes:
   plex_data:
   vpn_data:
   bazarr_data:
+  homeassistant_data:
+  podgrab_data:
+  # model-cache1:
