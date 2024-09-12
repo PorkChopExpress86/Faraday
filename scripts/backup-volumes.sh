@@ -59,6 +59,5 @@ docker run --rm --volumes-from sonarr -v ./backup:/backup ubuntu tar cvf /backup
 # Immich-machine-learning
 docker run --rm --volumes-from immich_machine_learning -v ./backup:/backup ubuntu tar cvf /backup/model-cache.tar -C /cache .
 
-
 # Start it all back up using the powershell script
 docker compose up -d
